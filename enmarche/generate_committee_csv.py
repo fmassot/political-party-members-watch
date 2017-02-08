@@ -1,22 +1,28 @@
 # -*- coding: utf-8 -*-
 
-from operator import itemgetter
-import dateutil.parser
 import requests
-from itertools import groupby
 import csv
 
+
+def get_committee(id):
+    print("download committee with id " + str(id))
+
+    try_count = 0
+    while try_count < 5:
+        try:
+            return requests.get("https://en-marche.fr/api/committee/" + str(id)).json()
+        except Exception as e:
+            try_count += 1
+            print("error", e)
+
+    raise Exception("cannot download committe with id " + str(id))
+
 data = requests.get("https://en-marche.fr/api/committee").json()
+committees = (get_committee(committee['id']) for committee in data)
 
-for committee in data:
-    committee['create_datetime'] = dateutil.parser.parse(committee['createdAt'].split('T')[0]).replace(minute=0, second=0, microsecond=0).date()
-
-data = sorted(data, key=itemgetter('create_datetime'))
-
-with open('committee_count.csv', 'w') as csvfile:
+with open('data/macron-committee.csv', 'w') as csvfile:
     writer = csv.writer(csvfile)
-    writer.writerow(['date', 'count'])
+    writer.writerow(['id', 'name', 'city', 'zipcode', 'membersCount', 'lat', 'lng'])
 
-    for key, group in groupby(data, key=itemgetter('create_datetime')):
-        committee_count = len(list(group))
-        writer.writerow([key.isoformat(), committee_count])
+    for committee in committees:
+        writer.writerow([committee['id'], committee['name'], committee['city'], committee['zipcode'], committee['membersCount'], committee['lat'], committee['lng']])
